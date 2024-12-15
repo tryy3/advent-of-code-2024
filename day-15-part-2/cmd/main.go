@@ -2,15 +2,17 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"strings"
 
-	"github.com/tryy3/advent-of-code/day-8-part-1/process"
+	"github.com/tryy3/advent-of-code/day-15-part-1/process"
 )
 
 func main() {
-	file := flag.String("file", "input.txt", "input file")
+	file := flag.String("file", "test.txt", "input file")
 	input := flag.String("input", "", "input")
+	steps := flag.Int("steps", 15, "number of steps")
 	flag.Parse()
 
 	var err error
@@ -30,5 +32,13 @@ func main() {
 		}
 	}
 
-	processor.Update()
+	if *steps <= 0 {
+		*steps = processor.GetStepCount()
+	}
+
+	for i := 0; i < *steps; i++ {
+		processor.Update()
+	}
+
+	fmt.Println(processor.GetSum())
 }

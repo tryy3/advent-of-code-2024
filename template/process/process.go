@@ -14,18 +14,17 @@ func NewProcessor() *Processor {
 	return &Processor{}
 }
 
-func LoadProcessorFromFile(path string) (*Processor, error) {
+func (p *Processor) LoadFromFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer file.Close()
 
-	return LoadProcessorFromReader(file)
+	return p.LoadFromReader(file)
 }
 
-func LoadProcessorFromReader(reader io.Reader) (*Processor, error) {
-	processor := &Processor{}
+func (p *Processor) LoadFromReader(reader io.Reader) error {
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(bufio.ScanLines)
 
@@ -34,8 +33,8 @@ func LoadProcessorFromReader(reader io.Reader) (*Processor, error) {
 		log.Println(line)
 	}
 
-	return processor, nil
+	return nil
 }
 
-func (p *Processor) Run() {
+func (p *Processor) Update() {
 }
