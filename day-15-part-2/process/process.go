@@ -78,16 +78,22 @@ func (p *Processor) LoadFromReader(reader io.Reader) error {
 		lastRune = rune
 
 		if loadMap {
+			var entity Entity
 			switch rune {
 			case '#':
-				p.entities = append(p.entities, NewWall(NewPosition(x, y)))
+				entity = NewWall(NewPosition(x, y))
 			case 'O':
-				p.entities = append(p.entities, NewFood(NewPosition(x, y)))
+				entity = NewFood(NewPosition(x, y))
 			case '@':
-				p.guard = NewGuard(NewPosition(x, y))
-				p.entities = append(p.entities, p.guard)
+				entity = NewGuard(NewPosition(x, y))
+				p.guard = entity.(*Guard)
 			}
-			x++
+			if entity != nil {
+				p.entities = append(p.entities, entity)
+				x += 2
+			} else {
+				x += 2
+			}
 			continue
 		} else {
 			switch rune {
@@ -104,75 +110,124 @@ func (p *Processor) LoadFromReader(reader io.Reader) error {
 
 	}
 
+	fmt.Println(p.maxWidth, p.maxHeight)
+
 	return nil
 }
 
 func (p *Processor) Update() {
 	dir := p.directions[p.currentDirection]
-	nextPosition := p.NextPosition(p.guard.GetPosition(), dir)
-	if p.AttemptMove(p.guard.GetPosition(), dir) {
-		p.guard.SetPosition(nextPosition)
+	// nextPosition := p.NextPosition(p.guard.GetPosition(), 1, dir)
+	entities := p.AttemptMove(p.guard.GetPosition(), 1, dir)
+	if entities != nil {
+		for entity, _ := range entities {
+			entity.Move(dir)
+		}
+		p.guard.Move(dir)
 	}
-	p.currentDirection = (p.currentDirection + 1) % len(p.directions)
+	p.currentDirection++
 }
 
-func (p *Processor) NextPosition(currentPosition *Position, direction Direction) *Position {
+func (p *Processor) NextPosition(currentPosition *Position, movement int, direction Direction) *Position {
 	var newPosition *Position
 	switch direction {
 	case Up:
-		newPosition = NewPosition(currentPosition.x, currentPosition.y-1)
+		newPosition = NewPosition(currentPosition.x, currentPosition.y-movement)
 	case Down:
-		newPosition = NewPosition(currentPosition.x, currentPosition.y+1)
+		newPosition = NewPosition(currentPosition.x, currentPosition.y+movement)
 	case Left:
-		newPosition = NewPosition(currentPosition.x-1, currentPosition.y)
+		newPosition = NewPosition(currentPosition.x-movement, currentPosition.y)
 	case Right:
-		newPosition = NewPosition(currentPosition.x+1, currentPosition.y)
+		newPosition = NewPosition(currentPosition.x+movement, currentPosition.y)
 	}
 	return newPosition
 }
 
-func (p *Processor) AttemptMove(currentPosition *Position, direction Direction) bool {
-	newPosition := p.NextPosition(currentPosition, direction)
+func (p *Processor) GetMovement(direction Direction, entity Entity) int {
+	switch direction {
+	case Up, Down:
+		return entity.GetSize().GetHeight()
+	case Left, Right:
+		return entity.GetSize().GetWidth()
+	}
+	return 0
+}
+
+func (p *Processor) AttemptMove(currentPosition *Position, movement int, direction Direction) map[Entity]bool {
+	newPosition := p.NextPosition(currentPosition, movement, direction)
 	entity := p.GetEntity(newPosition.x, newPosition.y)
 	if entity == nil {
 		// Return true but nothing moves (no collision)
-		return true
+		return map[Entity]bool{}
 	} else {
 		if entity.IsWall() {
-			return false
+			return nil
 		} else {
-			if p.AttemptMove(newPosition, direction) {
-				nextPosition := p.NextPosition(newPosition, direction)
-				entity.SetPosition(nextPosition)
-				return true
+			entities := map[Entity]bool{entity: true}
+
+			if direction == Up || direction == Down {
+				for i := 0; i < entity.GetSize().GetWidth(); i++ {
+					e := p.AttemptMove(NewPosition(entity.GetPosition().x+i, entity.GetPosition().y), 1, direction)
+					if e == nil {
+						return nil
+					}
+					for k, v := range e {
+						entities[k] = v
+					}
+				}
+			} else {
+				e := p.AttemptMove(newPosition, p.GetMovement(direction, entity), direction)
+				if e == nil {
+					return nil
+				}
+				for k, v := range e {
+					entities[k] = v
+				}
 			}
+			return entities
 		}
 	}
-	return false
+	return map[Entity]bool{}
 }
 
 func (p *Processor) Render() {
-	for y := 0; y < p.maxHeight; y++ {
-		for x := 0; x < p.maxWidth; x++ {
+	var x, y int
+	for {
+		if y >= p.maxHeight {
+			break
+		}
+		for {
+			if x >= p.maxWidth {
+				x = 0
+				break
+			}
 			if p.IsGuardAt(x, y) {
 				fmt.Print("@")
+				x++
 			} else {
 				entity := p.GetEntity(x, y)
 				if entity != nil {
 					fmt.Print(entity.GetSymbol())
-
+					x += entity.GetSize().GetWidth()
 				} else {
 					fmt.Print(".")
+					x++
 				}
 			}
 		}
+		y++
 		fmt.Println()
 	}
 }
 
 func (p *Processor) GetEntity(x, y int) Entity {
 	for _, entity := range p.entities {
-		if entity.GetPosition().x == x && entity.GetPosition().y == y {
+		entityX := entity.GetPosition().x
+		maxEntityX := entityX + entity.GetSize().GetWidth()
+		entityY := entity.GetPosition().y
+		maxEntityY := entityY + entity.GetSize().GetHeight()
+
+		if x >= entityX && x < maxEntityX && y >= entityY && y < maxEntityY {
 			return entity
 		}
 	}

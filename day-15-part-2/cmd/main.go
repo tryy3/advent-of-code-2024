@@ -39,6 +39,18 @@ func main() {
 	for i := 0; i < *steps; i++ {
 		processor.Update()
 	}
+	// processor.Render()
+	// processor.Update()
+	// processor.Update()
+	// processor.Update()
+	// processor.Update()
+	// processor.Render()
+	// processor.Update()
+	// processor.Render()
+	// processor.Update()
+	// processor.Render()
+	// processor.Update()
+	processor.Render()
 
 	fmt.Println(processor.GetSum())
 }
